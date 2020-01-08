@@ -1,5 +1,10 @@
-package com.akhan.tv;
+package com.akhan.tv.gen;
 
+import com.akhan.tv.Entity;
+import com.akhan.tv.Pro;
+import com.akhan.tv.XmlHelper;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Queues;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.Element;
@@ -12,6 +17,9 @@ import java.io.*;
 import java.net.MalformedURLException;
 import java.util.List;
 import java.util.*;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.jar.JarFile;
 import java.util.zip.ZipEntry;
 
@@ -22,16 +30,83 @@ import java.util.zip.ZipEntry;
  */
 public class GenEasDicNew {
 
-    private static Map data = new HashMap(300);
-    private static Map rel = new HashMap(300);
-    private static Map em = new HashMap(300);
+    private HashMap<String, Entity> data = Maps.newHashMapWithExpectedSize(300);
+    private HashMap<String, String> rel = Maps.newHashMapWithExpectedSize(300);
+    private HashMap<String, String> em = Maps.newHashMapWithExpectedSize(300);
+
+    private ConcurrentLinkedQueue<String> jarQueue = Queues.newConcurrentLinkedQueue();
+    private ExecutorService threadPool = null;
+    private final int THREAD_COUNT = 10;
 
     static JFrame frame = new JFrame();
     static JTextArea txtOut = new JTextArea();
     static JLabel title = new JLabel();
     static JButton btnClose = new JButton("关闭");
 
-    public static void createFrame() {
+    public GenEasDicNew() {
+
+        try {
+            UIManager.setLookAndFeel("com.sun.java.swing.plaf.windows.WindowsLookAndFeel");
+        } catch (ClassNotFoundException e1) {
+            e1.printStackTrace();
+        } catch (InstantiationException e1) {
+            e1.printStackTrace();
+        } catch (IllegalAccessException e1) {
+            e1.printStackTrace();
+        } catch (UnsupportedLookAndFeelException e1) {
+            e1.printStackTrace();
+        }
+
+        try {
+            System.setOut(new PrintStream(new FileOutputStream(new File("EAS数据字典.txt"))));
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+
+        JFileChooser f = new JFileChooser();
+        f.setCurrentDirectory(new File("."));
+        f.setFileSelectionMode(2);
+        f.showOpenDialog(null);
+        File file = f.getSelectedFile();
+        if ((file == null) || (!file.exists())) {
+            System.exit(0);
+        }
+
+        createFrame();
+        listDir(new File("." + File.separator + "metas").getAbsolutePath());
+        listDir(file.getAbsolutePath());
+
+        threadPool = Executors.newFixedThreadPool(THREAD_COUNT);
+        for (int i = 0; i < THREAD_COUNT; i++) {
+            threadPool.execute(new FileReader());
+        }
+
+        while (jarQueue.size() > 0)
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException ie) {
+                ie.printStackTrace();
+            }
+
+        display();
+        title.setText("运行成功");
+        out("运行成功，查看文件[EAS数据字典.txt]!");
+        btnClose.setEnabled(true);
+        try {
+            ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream("." + File.separator + "dic.db"));
+            out.writeObject(data);
+            out.writeObject(rel);
+            out.writeObject(em);
+
+            out.close();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void createFrame() {
         JScrollPane p = new JScrollPane();
         title.setText("程序运行中...");
         frame.getContentPane().add(title, "North");
@@ -42,7 +117,7 @@ public class GenEasDicNew {
         frame.getContentPane().add(pBtn, "South");
         btnClose.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent arg0) {
-                GenEasDicNew.close();
+                close();
             }
         });
         p.getViewport().add(txtOut);
@@ -58,19 +133,19 @@ public class GenEasDicNew {
         frame.setVisible(true);
     }
 
-    public static void close() {
+    public void close() {
         frame.dispose();
         System.exit(1);
     }
 
-    public static void out(String out) {
+    public void out(String out) {
         txtOut.append("\n" + out);
     }
 
-    public static void readFile(InputStream file)
-            throws MalformedURLException, DocumentException, FileNotFoundException {
+    public void readFile(InputStream file)
+            throws MalformedURLException, DocumentException {
         Document doc = XmlHelper.getDocument(file);
-        Map map = new HashMap(20);
+        HashMap<String, String> map = Maps.newHashMapWithExpectedSize(20);
         Element tb = doc.getRootElement();
         Element resource = tb.element("resource");
         List rss = resource.elements("rs");
@@ -128,12 +203,12 @@ public class GenEasDicNew {
 
         Entity ent = new Entity();
         ent.setKey(tb.element("package").getTextTrim() + "." + tb.element("name").getTextTrim());
-        ent.name = tb.element("name").getTextTrim();
-        ent.tableMap = tblName;
-        ent.type = tb.element("bosType").getTextTrim();
+        ent.setName(tb.element("name").getTextTrim());
+        ent.setTableMap(tblName);
+        ent.setType(tb.element("bosType").getTextTrim());
         ent.setParent(parent);
 
-        ent.label = ((String) map.get(tb.element("alias").getTextTrim()));
+        ent.setLabel(map.get(tb.element("alias").getTextTrim()));
         data.put(ent.getKey(), ent);
 
         for (int i = 0; i < cs.size(); i++) {
@@ -141,12 +216,12 @@ public class GenEasDicNew {
             ent.addColumn(p);
             Element col = (Element) cs.get(i);
 
-            p.name = col.element("name").getTextTrim();
+            p.setName(col.element("name").getTextTrim());
             if ((col.element("mappingField") != null) && (col.element("mappingField").element("key") != null)) {
-                p.tblMap = col.element("mappingField").element("key").attributeValue("value");
+                p.setTblMap(col.element("mappingField").element("key").attributeValue("value"));
             }
 
-            p.label = ((String) map.get(col.element("alias").getTextTrim()));
+            p.setLabel(map.get(col.element("alias").getTextTrim()));
 
             if (col.element("relationship") != null) {
                 List ch = col.element("relationship").elements();
@@ -165,22 +240,22 @@ public class GenEasDicNew {
                     }
                 }
 
-                p.relation = (pa + "." + name);
+                p.setRelation(pa + "." + name);
             }
 
             if (col.element("metadataRef") != null) {
-                p.em = col.elementText("metadataRef").trim();
+                p.setEm(col.elementText("metadataRef").trim());
             }
 
-            p.datatype = col.elementText("dataType");
-            p.desc = ((String) map.get(col.elementText("description")));
+            p.setDatatype(col.elementText("dataType"));
+            p.setDesc(map.get(col.elementText("description")));
         }
     }
 
-    public static void readEnumFile(InputStream file)
+    public void readEnumFile(InputStream file)
             throws MalformedURLException, DocumentException, FileNotFoundException {
         Document doc = XmlHelper.getDocument(file);
-        Map map = new HashMap(20);
+        HashMap<String, String> map = Maps.newHashMapWithExpectedSize(20);
 
         Element tb = doc.getRootElement();
         Element resource = tb.element("resource");
@@ -221,7 +296,7 @@ public class GenEasDicNew {
         em.put(pk + "." + name, bf.toString());
     }
 
-    public static void readRelFile(InputStream file)
+    public void readRelFile(InputStream file)
             throws MalformedURLException, DocumentException, FileNotFoundException {
         Document doc = XmlHelper.getDocument(file);
         Map map = new HashMap(20);
@@ -250,7 +325,7 @@ public class GenEasDicNew {
         rel.put(key, skey);
     }
 
-    public static void listJar(String jar)
+    public void listJar(String jar)
             throws IOException {
         out("扫描:" + jar);
 
@@ -294,57 +369,69 @@ public class GenEasDicNew {
         jarfile.close();
     }
 
-    public static void listDir(String dir) {
+    public void listDir(String dir) {
         File f = new File(dir);
         if (f.isDirectory()) {
             File[] cf = f.listFiles();
             for (int i = 0; i < cf.length; i++) {
                 listDir(cf[i].getAbsolutePath());
             }
+        } else {
+            jarQueue.offer(dir);
+        }
 
-        } else if (dir.endsWith(".jar")) {
-            try {
-                listJar(dir);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        } else if (dir.endsWith(".entity")) {
-            try {
-                out("\t正在解析:" + dir);
-                readFile(new FileInputStream(new File(dir)));
-            } catch (MalformedURLException e) {
-                e.printStackTrace();
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-            } catch (DocumentException e) {
-                e.printStackTrace();
-            }
-        } else if (dir.endsWith(".relation")) {
-            try {
-                out("\t正在解析:" + dir);
-                readRelFile(new FileInputStream(new File(dir)));
-            } catch (MalformedURLException e) {
-                e.printStackTrace();
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-            } catch (DocumentException e) {
-                e.printStackTrace();
-            }
-        } else if (dir.endsWith(".enum")) {
-            try {
-                out("\t正在解析:" + dir);
-                readEnumFile(new FileInputStream(new File(dir)));
-            } catch (MalformedURLException e) {
-                e.printStackTrace();
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-            } catch (DocumentException e) {
-                e.printStackTrace();
+    }
+
+    class FileReader implements Runnable {
+        @Override
+        public void run() {
+            while (jarQueue.size() > 0) {
+                String file = jarQueue.poll();
+                if (file.endsWith(".jar")) {
+                    try {
+                        listJar(file);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                } else if (file.endsWith(".entity")) {
+                    try {
+                        out("\t正在解析:" + file);
+                        readFile(new FileInputStream(new File(file)));
+                    } catch (MalformedURLException e) {
+                        e.printStackTrace();
+                    } catch (FileNotFoundException e) {
+                        e.printStackTrace();
+                    } catch (DocumentException e) {
+                        e.printStackTrace();
+                    }
+                } else if (file.endsWith(".relation")) {
+                    try {
+                        out("\t正在解析:" + file);
+                        readRelFile(new FileInputStream(new File(file)));
+                    } catch (MalformedURLException e) {
+                        e.printStackTrace();
+                    } catch (FileNotFoundException e) {
+                        e.printStackTrace();
+                    } catch (DocumentException e) {
+                        e.printStackTrace();
+                    }
+                } else if (file.endsWith(".enum")) {
+                    try {
+                        out("\t正在解析:" + file);
+                        readEnumFile(new FileInputStream(new File(file)));
+                    } catch (MalformedURLException e) {
+                        e.printStackTrace();
+                    } catch (FileNotFoundException e) {
+                        e.printStackTrace();
+                    } catch (DocumentException e) {
+                        e.printStackTrace();
+                    }
+                }
             }
         }
     }
 
-    public static void display() {
+    public void display() {
         out("正在输出文件...");
         List l = new ArrayList(data.size());
 
@@ -367,7 +454,7 @@ public class GenEasDicNew {
             List cls = new ArrayList();
 
             while (tmpEnty != null) {
-                cls.addAll(tmpEnty.columns);
+                cls.addAll(tmpEnty.getColumns());
 
                 tmpEnty = (Entity) data.get(tmpEnty.getParent());
             }
@@ -377,66 +464,18 @@ public class GenEasDicNew {
                     Pro a = (Pro) arg0;
                     Pro b = (Pro) arg1;
 
-                    return a.name.compareTo(b.name);
+                    return a.getName().compareTo(b.getName());
                 }
             });
-            System.out.println(enty.name + "\t" + enty.tableMap + " " + "\t" + enty.label);
+            System.out.println(enty.getName() + "\t" + enty.getTableMap() + " " + "\t" + enty.getLabel());
             System.out.println("{");
             for (int j = 0; j < cls.size(); j++) {
                 Pro p = (Pro) cls.get(j);
-                System.out.println("\t" + p.name + "\t" + p.tblMap + " " + "\t" + p.label + "\t" + p.relation);
+                System.out.println("\t" + p.getName() + "\t" + p.getTblMap() + " " + "\t" + p.getLabel() + "\t" + p.getRelation());
             }
             System.out.println("}");
         }
     }
 
-    public static void main(String[] args)
-            throws MalformedURLException, DocumentException {
-        try {
-            UIManager.setLookAndFeel("com.sun.java.swing.plaf.windows.WindowsLookAndFeel");
-        } catch (ClassNotFoundException e1) {
-            e1.printStackTrace();
-        } catch (InstantiationException e1) {
-            e1.printStackTrace();
-        } catch (IllegalAccessException e1) {
-            e1.printStackTrace();
-        } catch (UnsupportedLookAndFeelException e1) {
-            e1.printStackTrace();
-        }
 
-        try {
-            System.setOut(new PrintStream(new FileOutputStream(new File("EAS数据字典.txt"))));
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
-
-        JFileChooser f = new JFileChooser();
-        f.setCurrentDirectory(new File("."));
-        f.setFileSelectionMode(2);
-        f.showOpenDialog(null);
-        File file = f.getSelectedFile();
-        if ((file == null) || (!file.exists())) {
-            System.exit(0);
-        }
-
-        createFrame();
-        listDir(new File("." + File.separator + "metas").getAbsolutePath());
-        listDir(file.getAbsolutePath());
-        display();
-        title.setText("运行成功");
-        out("运行成功，查看文件[EAS数据字典.txt]!");
-        btnClose.setEnabled(true);
-        try {
-            ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream("." + File.separator + "dic.db"));
-            out.writeObject(data);
-            out.writeObject(rel);
-            out.writeObject(em);
-
-            out.close();
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
 }

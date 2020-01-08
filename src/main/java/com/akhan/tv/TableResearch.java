@@ -1,15 +1,24 @@
 package com.akhan.tv;
 
+import com.akhan.tv.gen.GenEasDicNew;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+import lombok.SneakyThrows;
+import org.apache.commons.lang3.StringUtils;
+
 import javax.swing.*;
-import javax.swing.event.ListSelectionEvent;
-import javax.swing.event.ListSelectionListener;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.io.*;
 import java.util.ArrayList;
-import java.util.Map;
+import java.util.HashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * @author: akhan
@@ -18,33 +27,128 @@ import java.util.Map;
  */
 public class TableResearch extends JFrame {
 
-    JTextField txtAls = new JTextField("");
+    private JTextField txtAls = new JTextField("");
 
-    JList lsTable = new JList();
-    DefaultTableModel model = null;
-    JTable cols = null;
-    Map data = null;
-    Map rel = null;
-    Map em = null;
-    boolean isFinish = true;
+    private JMenuBar mBar;
+    private JMenu fileMenu;
+    private JMenu editMenu;
+    private JMenuItem miOpen;
+    private JMenuItem miExit;
 
-    JScrollPane sp1 = null;
-    JScrollPane sp2 = null;
+    private JList lsTable = new JList();
+    private DefaultTableModel model = null;
+    private JTable cols = null;
+    private HashMap<String, Entity> data = null;
+    private HashMap<String, String> rel = null;
+    private HashMap<String, String> em = null;
+    private volatile boolean isFinish = true;
+    private final Object mutex = new Object();
+
+    private final ArrayList<Entity> NULL = new ArrayList<>();
+
+    private String _key;
+    private final LoadingCache<String, ArrayList<Entity>> RESULT_CACHE = CacheBuilder.newBuilder()
+            .initialCapacity(20)
+            .maximumSize(100)
+            .expireAfterAccess(100, TimeUnit.SECONDS)
+            .build(new CacheLoader<String, ArrayList<Entity>>() {
+                @Override
+                public ArrayList<Entity> load(String s) throws Exception {
+                    return NULL;
+                }
+            });
+
+    private JScrollPane sp1 = null;
+    private JScrollPane sp2 = null;
 
     public TableResearch() {
+        mBar = new JMenuBar();
+        setJMenuBar(mBar);
+        fileMenu = new JMenu("文件");
+        editMenu = new JMenu("编辑");
+        mBar.add(fileMenu);
+        mBar.add(editMenu);
+
+        miOpen = new JMenuItem("重新载入");
+        miExit = new JMenuItem("退出");
+
+
+        fileMenu.add(miOpen);
+        fileMenu.addSeparator();
+        fileMenu.add(miExit);
+
+
+        miOpen.addActionListener(e -> {
+            new GenEasDicNew();
+
+            loadData();
+        });
+        miExit.addActionListener(e -> {
+            int judge = JOptionPane.showConfirmDialog(TableResearch.this, "确认退出？");
+            if (judge == JOptionPane.OK_OPTION) {
+                System.exit(0);
+            }
+        });
+
         setTitle("表结构");
-        this.model = new DefaultTableModel();
-        this.model.addColumn("列名");
-        this.model.addColumn("别名");
-        this.model.addColumn("描述");
-        this.model.addColumn("数据类型");
-        this.model.addColumn("关联关系");
-        this.cols = new JTable(this.model);
+        model = new DefaultTableModel();
+        model.addColumn("列名");
+        model.addColumn("别名");
+        model.addColumn("描述");
+        model.addColumn("数据类型");
+        model.addColumn("关联关系");
+        cols = new JTable(model);
+
+        loadData();
+
+        txtAls.setPreferredSize(new Dimension(300, 30));
+
+        lsTable.setModel(new DefaultListModel());
+
+        txtAls.addKeyListener(new KeyListener() {
+            public void keyPressed(KeyEvent e) {
+            }
+
+            @SneakyThrows
+            public void keyReleased(KeyEvent e) {
+                res();
+            }
+
+            public void keyTyped(KeyEvent e) {
+            }
+        });
+        lsTable.addListSelectionListener(e -> loadDetail());
+        JPanel p1 = new JPanel();
+        p1.setLayout(new BoxLayout(p1, 2));
+        p1.add(new JLabel("表名称:"));
+        p1.add(txtAls);
+
+        getContentPane().add(p1, "North");
+
+        getContentPane().add(new JLabel("<html><font> 版本: V0.9    日期：2020 </font> <font color=blue>EMail:wzysz555@foxmail.com</font></html>"), "South");
+
+        sp1 = new JScrollPane(lsTable);
+
+        sp2 = new JScrollPane(cols);
+
+        JSplitPane p2 = new JSplitPane(1, false, sp1, sp2);
+
+        getContentPane().add(p2, "Center");
+
+        pack();
+
+        setLocationRelativeTo(null);
+        setDefaultCloseOperation(3);
+        setBackground(Color.GRAY);
+        setVisible(true);
+    }
+
+    private void loadData() {
         try {
             ObjectInputStream out = new ObjectInputStream(new FileInputStream("." + File.separator + "dic.db"));
-            this.data = ((Map) out.readObject());
-            this.rel = ((Map) out.readObject());
-            this.em = ((Map) out.readObject());
+            data = ((HashMap) out.readObject());
+            rel = ((HashMap) out.readObject());
+            em = ((HashMap) out.readObject());
 
             out.close();
         } catch (FileNotFoundException e) {
@@ -54,137 +158,76 @@ public class TableResearch extends JFrame {
         } catch (ClassNotFoundException e) {
             e.printStackTrace();
         }
-
-        this.txtAls.setPreferredSize(new Dimension(300, 30));
-
-        this.lsTable.setModel(new DefaultListModel());
-
-        this.txtAls.addKeyListener(new KeyListener() {
-            public void keyPressed(KeyEvent e) {
-            }
-
-            public void keyReleased(KeyEvent e) {
-                TableResearch.this.res();
-            }
-
-            public void keyTyped(KeyEvent e) {
-            }
-        });
-        this.lsTable.addListSelectionListener(new ListSelectionListener() {
-            public void valueChanged(ListSelectionEvent e) {
-                TableResearch.this.loadDetial();
-            }
-        });
-        JPanel p1 = new JPanel();
-        p1.setLayout(new BoxLayout(p1, 2));
-        p1.add(new JLabel("表名称:"));
-        p1.add(this.txtAls);
-
-        getContentPane().add(p1, "North");
-
-        getContentPane().add(new JLabel("<html><font color=blue> 版本: V0.9    日期：2020 </font> <font color=red>EMail:wzysz555@foxmail.com</font></html>"), "South");
-
-        this.sp1 = new JScrollPane(this.lsTable);
-
-        this.sp2 = new JScrollPane(this.cols);
-
-        JSplitPane p2 = new JSplitPane(1, false, this.sp1, this.sp2);
-
-        getContentPane().add(p2, "Center");
-
-        pack();
-
-        setLocationRelativeTo(null);
-        setDefaultCloseOperation(3);
-        setVisible(true);
     }
 
-    public void res2() {
+    private void res() throws ExecutionException {
+        if (isFinish) {
+            synchronized (mutex) {
+                if (isFinish) {
+                    isFinish = false;
+
+                    _key = StringUtils.defaultIfEmpty(txtAls.getText(), "").toLowerCase();
+
+                    DefaultListModel m = (DefaultListModel) lsTable.getModel();
+                    m.removeAllElements();
+
+                    ArrayList<Entity> foo = null;
+
+                    foo = RESULT_CACHE.get(_key);
+                    if (foo.isEmpty()) {
+                        foo = data.values()
+                                .stream()
+                                .filter(entity -> StringUtils.contains(StringUtils.lowerCase(entity.getName()), _key) ||
+                                        StringUtils.contains(StringUtils.lowerCase(entity.getLabel()), _key))
+                                .collect(Collectors.toCollection(ArrayList::new));
+                        RESULT_CACHE.put(_key, foo);
+                    }
+                    foo.forEach(n -> m.addElement(n));
+                    isFinish = true;
+                }
+            }
+        }
     }
 
-    public void res() {
-        if (!this.isFinish) {
-            return;
-        }
-
-        this.isFinish = false;
-        String key = null;
-
-        key = this.txtAls.getText();
-
-        if (key == null) {
-            key = "";
-        }
-        key = key.toLowerCase();
-
-        ArrayList l = new ArrayList(this.data.values());
-
-        DefaultListModel m = (DefaultListModel) this.lsTable.getModel();
-        m.removeAllElements();
-
-        for (int i = 0; i < l.size(); i++) {
-            Entity en = (Entity) l.get(i);
-            String name = "";
-            String label = "";
-            if (en.tableMap != null) {
-                name = en.tableMap.toLowerCase();
-            }
-            if (en.label != null) {
-                label = en.label.toLowerCase();
-            }
-
-            if ((name.indexOf(key) < 0) && (label.indexOf(key) < 0))
-                continue;
-            m.addElement(en);
-        }
-
-        this.isFinish = true;
-    }
-
-    public void loadDetial() {
-        Entity en = (Entity) this.lsTable.getSelectedValue();
+    private void loadDetail() {
+        Entity en = (Entity) lsTable.getSelectedValue();
         if (en == null) {
             return;
         }
-        StringBuffer bf = new StringBuffer(100);
-        while (this.model.getRowCount() > 0) {
-            this.model.removeRow(0);
+        while (model.getRowCount() > 0) {
+            model.removeRow(0);
         }
 
-        this.model.addRow(new String[]{en.tableMap, en.label, en.name, "", ""});
-        this.model.addRow(new String[]{"", "", "", "", ""});
+        model.addRow(new String[]{en.getTableMap(), en.getLabel(), en.getName(), "", ""});
+        model.addRow(new String[]{"", "", "", "", ""});
 
         while (en != null) {
-            for (int i = 0; i < en.columns.size(); i++) {
-                Pro c = (Pro) en.columns.get(i);
+            for (int i = 0; i < en.getColumns().size(); i++) {
+                Pro c = (Pro) en.getColumns().get(i);
                 String relEnName = "";
 
                 if (c.relation != null) {
-                    String relName = (String) this.rel.get(c.relation);
+                    String relName = rel.get(c.relation);
 
                     if (relName != null) {
-                        Entity ent = (Entity) this.data.get(relName);
+                        Entity ent = data.get(relName);
                         if (ent != null) {
-                            relEnName = ent.tableMap;
+                            relEnName = ent.getTableMap();
                         }
                     }
 
                 }
 
-                if ((c.em != null) && (this.em.get(c.em) != null)) {
-                    relEnName = (String) this.em.get(c.em);
+                if ((c.em != null) && (em.get(c.em) != null)) {
+                    relEnName = em.get(c.em);
                 }
 
-                this.model.addRow(new String[]{c.tblMap, c.label, c.desc, c.datatype, relEnName});
+                model.addRow(new String[]{c.tblMap, c.label, c.desc, c.datatype, relEnName});
             }
-            if (this.data.containsKey(en.getParent())) {
-                en = (Entity) this.data.get(en.getParent());
+            if (data.containsKey(en.getParent())) {
+                en = data.get(en.getParent());
             } else
                 en = null;
         }
-    }
-
-    public static void main(String[] args) {
-        new TableResearch();
     }
 }
