@@ -8,6 +8,7 @@ import lombok.SneakyThrows;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.swing.*;
+import javax.swing.plaf.FontUIResource;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionListener;
@@ -15,6 +16,7 @@ import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -140,22 +142,33 @@ public class TableResearch extends JFrame {
         setLocationRelativeTo(null);
         setDefaultCloseOperation(3);
         setBackground(Color.GRAY);
+
+        FontUIResource font = new FontUIResource(new Font("微软雅黑",Font.PLAIN,16));
+        for (Enumeration<Object> keys = UIManager.getDefaults().keys(); keys.hasMoreElements();) {
+            Object key = keys.nextElement();
+            Object value = UIManager.get(key);
+            if (value instanceof FontUIResource) {
+                UIManager.put(key, font);
+            }
+        }
+
         setVisible(true);
     }
 
     private void loadData() {
         try {
+            data = null;
+            rel = null;
+            em = null;
+            System.gc();
+
             ObjectInputStream out = new ObjectInputStream(new FileInputStream("." + File.separator + "dic.db"));
             data = ((HashMap) out.readObject());
             rel = ((HashMap) out.readObject());
             em = ((HashMap) out.readObject());
 
             out.close();
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (ClassNotFoundException e) {
+        } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }
     }
@@ -182,7 +195,7 @@ public class TableResearch extends JFrame {
                                 .collect(Collectors.toCollection(ArrayList::new));
                         RESULT_CACHE.put(_key, foo);
                     }
-                    foo.forEach(n -> m.addElement(n));
+                    foo.forEach(m::addElement);
                     isFinish = true;
                 }
             }
@@ -224,10 +237,7 @@ public class TableResearch extends JFrame {
 
                 model.addRow(new String[]{c.tblMap, c.label, c.desc, c.datatype, relEnName});
             }
-            if (data.containsKey(en.getParent())) {
-                en = data.get(en.getParent());
-            } else
-                en = null;
+            en = data.getOrDefault(en.getParent(), null);
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.akhan.tv;
 
+import org.apache.commons.lang3.StringUtils;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.DocumentHelper;
@@ -18,12 +19,11 @@ import java.net.URL;
  */
 public class XmlHelper {
 
-    private static final SAXReader XMLReader = new SAXReader();
+    private static final ThreadLocal<SAXReader> SAX_READER_THREAD_LOCAL = new ThreadLocal<>();
 
     public static Document getDocument(InputStream inputStream)
-            throws MalformedURLException, DocumentException
-    {
-        Document document = XMLReader.read(inputStream);
+            throws MalformedURLException, DocumentException {
+        Document document = SAX_READER_THREAD_LOCAL.get().read(inputStream);
 
         return document;
     }
@@ -33,25 +33,22 @@ public class XmlHelper {
     }
 
     public static Document getDocument(File file)
-            throws MalformedURLException, DocumentException
-    {
-        Document document = XMLReader.read(file);
+            throws MalformedURLException, DocumentException {
+        Document document = SAX_READER_THREAD_LOCAL.get().read(file);
 
         return document;
     }
 
     public static Document getDocument(File file, String format)
-            throws MalformedURLException, DocumentException, FileNotFoundException
-    {
-        Document document = XMLReader.read(new FileInputStream(file), format);
+            throws MalformedURLException, DocumentException, FileNotFoundException {
+        Document document = SAX_READER_THREAD_LOCAL.get().read(new FileInputStream(file), format);
 
         return document;
     }
 
     public static Document getDocument(URL url)
-            throws MalformedURLException, DocumentException
-    {
-        Document document = XMLReader.read(url);
+            throws MalformedURLException, DocumentException {
+        Document document = SAX_READER_THREAD_LOCAL.get().read(url);
 
         return document;
     }
@@ -61,10 +58,8 @@ public class XmlHelper {
                 new OutputStreamWriter(outStream, encoding));
     }
 
-    public static void save(Document document, OutputStream outputStream)
-    {
-        try
-        {
+    public static void save(Document document, OutputStream outputStream) {
+        try {
             OutputFormat format = OutputFormat.createCompactFormat();
             format.setEncoding("GBK");
             format.setNewlines(true);
@@ -77,43 +72,41 @@ public class XmlHelper {
             xmlWriter.write(document);
 
             xmlWriter.close();
-        }
-        catch (Exception ex)
-        {
+        } catch (Exception ex) {
             ex.printStackTrace();
         }
     }
 
-    public static void save(Document document, File f)
-    {
-        try
-        {
+    public static void save(Document document, File f) {
+        try {
             XMLWriter writer = new XMLWriter(new FileWriter(f));
 
             writer.write(document);
 
             writer.close();
-        }
-        catch (Exception ex)
-        {
+        } catch (Exception ex) {
             ex.printStackTrace();
         }
     }
 
-    public static void saveAsFormat(Document document, File f)
-    {
-        try
-        {
+    public static void saveAsFormat(Document document, File f) {
+        try {
             OutputFormat format = OutputFormat.createPrettyPrint();
             XMLWriter writer = new XMLWriter(new FileWriter(f), format);
 
             writer.write(document);
 
             writer.close();
-        }
-        catch (Exception ex)
-        {
+        } catch (Exception ex) {
             ex.printStackTrace();
         }
+    }
+
+    public static void init() {
+        SAX_READER_THREAD_LOCAL.set(new SAXReader());
+    }
+
+    public static void clear() {
+        SAX_READER_THREAD_LOCAL.remove();
     }
 }

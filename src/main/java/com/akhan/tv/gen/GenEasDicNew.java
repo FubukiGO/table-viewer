@@ -11,8 +11,6 @@ import org.dom4j.Element;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.*;
 import java.net.MalformedURLException;
 import java.util.List;
@@ -36,24 +34,18 @@ public class GenEasDicNew {
 
     private ConcurrentLinkedQueue<String> jarQueue = Queues.newConcurrentLinkedQueue();
     private ExecutorService threadPool = null;
-    private final int THREAD_COUNT = 10;
+    private final int THREAD_COUNT = 8;
 
-    static JFrame frame = new JFrame();
-    static JTextArea txtOut = new JTextArea();
-    static JLabel title = new JLabel();
-    static JButton btnClose = new JButton("关闭");
+    private JFrame frame = new JFrame();
+    private JTextArea txtOut = new JTextArea();
+    private JLabel title = new JLabel();
+    private JButton btnClose = new JButton("关闭");
 
     public GenEasDicNew() {
 
         try {
             UIManager.setLookAndFeel("com.sun.java.swing.plaf.windows.WindowsLookAndFeel");
-        } catch (ClassNotFoundException e1) {
-            e1.printStackTrace();
-        } catch (InstantiationException e1) {
-            e1.printStackTrace();
-        } catch (IllegalAccessException e1) {
-            e1.printStackTrace();
-        } catch (UnsupportedLookAndFeelException e1) {
+        } catch (ClassNotFoundException | UnsupportedLookAndFeelException | IllegalAccessException | InstantiationException e1) {
             e1.printStackTrace();
         }
 
@@ -89,6 +81,7 @@ public class GenEasDicNew {
             }
 
         display();
+
         title.setText("运行成功");
         out("运行成功，查看文件[EAS数据字典.txt]!");
         btnClose.setEnabled(true);
@@ -99,8 +92,6 @@ public class GenEasDicNew {
             out.writeObject(em);
 
             out.close();
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -115,14 +106,10 @@ public class GenEasDicNew {
         pBtn.add(btnClose);
         btnClose.setEnabled(false);
         frame.getContentPane().add(pBtn, "South");
-        btnClose.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent arg0) {
-                close();
-            }
-        });
+        btnClose.addActionListener(e -> close());
         p.getViewport().add(txtOut);
 
-        frame.setSize(400, 400);
+        frame.setSize(600, 400);
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
         Dimension frameSize = frame.getSize();
         frame.setLocation((screenSize.width - frameSize.width) / 2,
@@ -135,11 +122,12 @@ public class GenEasDicNew {
 
     public void close() {
         frame.dispose();
-        System.exit(1);
+        //System.exit(1);
     }
 
     public void out(String out) {
         txtOut.append("\n" + out);
+        txtOut.setCaretPosition(txtOut.getText().length());
     }
 
     public void readFile(InputStream file)
@@ -385,6 +373,7 @@ public class GenEasDicNew {
     class FileReader implements Runnable {
         @Override
         public void run() {
+            XmlHelper.init();
             while (jarQueue.size() > 0) {
                 String file = jarQueue.poll();
                 if (file.endsWith(".jar")) {
@@ -397,37 +386,26 @@ public class GenEasDicNew {
                     try {
                         out("\t正在解析:" + file);
                         readFile(new FileInputStream(new File(file)));
-                    } catch (MalformedURLException e) {
-                        e.printStackTrace();
-                    } catch (FileNotFoundException e) {
-                        e.printStackTrace();
-                    } catch (DocumentException e) {
+                    } catch (MalformedURLException | FileNotFoundException | DocumentException e) {
                         e.printStackTrace();
                     }
                 } else if (file.endsWith(".relation")) {
                     try {
                         out("\t正在解析:" + file);
                         readRelFile(new FileInputStream(new File(file)));
-                    } catch (MalformedURLException e) {
-                        e.printStackTrace();
-                    } catch (FileNotFoundException e) {
-                        e.printStackTrace();
-                    } catch (DocumentException e) {
+                    } catch (MalformedURLException | FileNotFoundException | DocumentException e) {
                         e.printStackTrace();
                     }
                 } else if (file.endsWith(".enum")) {
                     try {
                         out("\t正在解析:" + file);
                         readEnumFile(new FileInputStream(new File(file)));
-                    } catch (MalformedURLException e) {
-                        e.printStackTrace();
-                    } catch (FileNotFoundException e) {
-                        e.printStackTrace();
-                    } catch (DocumentException e) {
+                    } catch (MalformedURLException | FileNotFoundException | DocumentException e) {
                         e.printStackTrace();
                     }
                 }
             }
+            XmlHelper.clear();
         }
     }
 
@@ -437,17 +415,15 @@ public class GenEasDicNew {
 
         l.addAll(data.values());
 
-        Collections.sort(l, new Comparator() {
-            public int compare(Object arg0, Object arg1) {
-                Entity a = (Entity) arg0;
-                Entity b = (Entity) arg1;
+        l.sort((arg0, arg1) -> {
+            Entity a = (Entity) arg0;
+            Entity b = (Entity) arg1;
 
-                return a.getKey().compareTo(b.getKey());
-            }
+            return a.getKey().compareTo(b.getKey());
         });
-        for (int i = 0; i < l.size(); i++) {
-            Entity enty = (Entity) l.get(i);
-            if ((enty.getKey().indexOf("com.kingdee.eas.framework") >= 0) || (enty.getKey().indexOf("com.kingdee.eas.bim") >= 0)) {
+        for (Object o : l) {
+            Entity enty = (Entity) o;
+            if ((enty.getKey().contains("com.kingdee.eas.framework")) || (enty.getKey().contains("com.kingdee.eas.bim"))) {
                 continue;
             }
             Entity tmpEnty = enty;
@@ -456,16 +432,14 @@ public class GenEasDicNew {
             while (tmpEnty != null) {
                 cls.addAll(tmpEnty.getColumns());
 
-                tmpEnty = (Entity) data.get(tmpEnty.getParent());
+                tmpEnty = data.get(tmpEnty.getParent());
             }
 
-            Collections.sort(cls, new Comparator() {
-                public int compare(Object arg0, Object arg1) {
-                    Pro a = (Pro) arg0;
-                    Pro b = (Pro) arg1;
+            cls.sort((arg0, arg1) -> {
+                Pro a = (Pro) arg0;
+                Pro b = (Pro) arg1;
 
-                    return a.getName().compareTo(b.getName());
-                }
+                return a.getName().compareTo(b.getName());
             });
             System.out.println(enty.getName() + "\t" + enty.getTableMap() + " " + "\t" + enty.getLabel());
             System.out.println("{");
