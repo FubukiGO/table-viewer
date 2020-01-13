@@ -127,7 +127,7 @@ public class TableResearch extends JFrame {
 
         getContentPane().add(p1, "North");
 
-        getContentPane().add(new JLabel("<html><font> 版本: V0.9    日期：2020 </font> <font color=blue>EMail:wzysz555@foxmail.com</font></html>"), "South");
+        getContentPane().add(new JLabel("<html><font> 版本: V1.1    日期：2020-01 </font> <font color=blue>&nbsp;&nbsp;Created By akhan</font></html>"), "South");
 
         sp1 = new JScrollPane(lsTable);
 
