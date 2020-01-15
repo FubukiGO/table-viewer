@@ -61,6 +61,50 @@
                 <executions>
                 </executions>
             </plugin>
+
+            <plugin>
+                <groupId>org.bluestemsoftware.open.maven.plugin</groupId>
+                <artifactId>launch4j-plugin</artifactId>
+                <version>1.5.0.0</version>
+                <executions>
+                    <!-- GUI exe -->
+                    <execution>
+                        <id>l4j-gui</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>launch4j</goal>
+                        </goals>
+                        <configuration>
+                            <headerType>gui</headerType>
+                            <outfile>target/${project.name}.exe</outfile>
+                            <jar>target/${project.name}-${project.version}.jar</jar>
+                            <errTitle>Launch Error!</errTitle>
+                            <classPath>
+                                <mainClass>com.akhan.tv.Client</mainClass>
+                            </classPath>
+<!--                            <icon>src/main/resources/icons/exeIcon.ico</icon>-->
+                            <jre>
+                                <minVersion>1.8.0</minVersion>
+                                <maxVersion>1.9.0</maxVersion>
+                                <initialHeapSize>128</initialHeapSize>
+                                <maxHeapSize>1024</maxHeapSize>
+                            </jre>
+                            <versionInfo>
+                                <fileVersion>1.0.0.0</fileVersion>
+                                <txtFileVersion>1.0.0.0</txtFileVersion>
+                                <fileDescription>Desc</fileDescription>
+                                <copyright>C</copyright>
+                                <productVersion>1.0.0.0</productVersion>
+                                <txtProductVersion>1.0.0.0</txtProductVersion>
+                                <productName>Product</productName>
+                                <internalName>Product</internalName>
+                                <originalFilename>App.exe</originalFilename>
+                            </versionInfo>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>

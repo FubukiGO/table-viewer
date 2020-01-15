@@ -11,16 +11,20 @@ import javax.swing.*;
 import javax.swing.plaf.FontUIResource;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * @author: akhan
@@ -29,17 +33,12 @@ import java.util.stream.Collectors;
  */
 public class TableResearch extends JFrame {
 
-    private JTextField txtAls = new JTextField("");
+    private final static Pattern TABLE_REGX = Pattern.compile("^[a-zA-Z][a-zA-Z_]+[a-zA-Z]$");
 
-    private JMenuBar mBar;
-    private JMenu fileMenu;
-    private JMenu editMenu;
-    private JMenuItem miOpen;
-    private JMenuItem miExit;
+    private JTextField txtAls = new JTextField("");
 
     private JList lsTable = new JList();
     private DefaultTableModel model = null;
-    private JTable cols = null;
     private HashMap<String, Entity> data = null;
     private HashMap<String, String> rel = null;
     private HashMap<String, String> em = null;
@@ -48,7 +47,6 @@ public class TableResearch extends JFrame {
 
     private final ArrayList<Entity> NULL = new ArrayList<>();
 
-    private String _key;
     private final LoadingCache<String, ArrayList<Entity>> RESULT_CACHE = CacheBuilder.newBuilder()
             .initialCapacity(20)
             .maximumSize(100)
@@ -64,15 +62,15 @@ public class TableResearch extends JFrame {
     private JScrollPane sp2 = null;
 
     public TableResearch() {
-        mBar = new JMenuBar();
+        JMenuBar mBar = new JMenuBar();
         setJMenuBar(mBar);
-        fileMenu = new JMenu("文件");
-        editMenu = new JMenu("编辑");
+        JMenu fileMenu = new JMenu("文件");
+        JMenu editMenu = new JMenu("编辑");
         mBar.add(fileMenu);
         mBar.add(editMenu);
 
-        miOpen = new JMenuItem("重新载入");
-        miExit = new JMenuItem("退出");
+        JMenuItem miOpen = new JMenuItem("重新载入");
+        JMenuItem miExit = new JMenuItem("退出");
 
 
         fileMenu.add(miOpen);
@@ -99,7 +97,7 @@ public class TableResearch extends JFrame {
         model.addColumn("描述");
         model.addColumn("数据类型");
         model.addColumn("关联关系");
-        cols = new JTable(model);
+        JTable cols = new JTable(model);
 
         loadData();
 
@@ -108,14 +106,17 @@ public class TableResearch extends JFrame {
         lsTable.setModel(new DefaultListModel());
 
         txtAls.addKeyListener(new KeyListener() {
+            @Override
             public void keyPressed(KeyEvent e) {
             }
 
+            @Override
             @SneakyThrows
             public void keyReleased(KeyEvent e) {
                 res();
             }
 
+            @Override
             public void keyTyped(KeyEvent e) {
             }
         });
@@ -143,8 +144,8 @@ public class TableResearch extends JFrame {
         setDefaultCloseOperation(3);
         setBackground(Color.GRAY);
 
-        FontUIResource font = new FontUIResource(new Font("微软雅黑",Font.PLAIN,16));
-        for (Enumeration<Object> keys = UIManager.getDefaults().keys(); keys.hasMoreElements();) {
+        FontUIResource font = new FontUIResource(new Font("微软雅黑", Font.PLAIN, 16));
+        for (Enumeration<Object> keys = UIManager.getDefaults().keys(); keys.hasMoreElements(); ) {
             Object key = keys.nextElement();
             Object value = UIManager.get(key);
             if (value instanceof FontUIResource) {
@@ -177,25 +178,30 @@ public class TableResearch extends JFrame {
         if (isFinish) {
             synchronized (mutex) {
                 if (isFinish) {
+                    ArrayList<Entity> foo = null;
                     isFinish = false;
 
-                    _key = StringUtils.defaultIfEmpty(txtAls.getText(), "").toLowerCase();
+                    String _key = StringUtils.defaultIfEmpty(txtAls.getText(), "").toLowerCase();
 
                     DefaultListModel m = (DefaultListModel) lsTable.getModel();
                     m.removeAllElements();
 
-                    ArrayList<Entity> foo = null;
-
                     foo = RESULT_CACHE.get(_key);
+
+                    boolean isTable = TABLE_REGX.matcher(_key).matches();
+
                     if (foo.isEmpty()) {
-                        foo = data.values()
-                                .stream()
-                                .filter(entity -> StringUtils.contains(StringUtils.lowerCase(entity.getName()), _key) ||
-                                        StringUtils.contains(StringUtils.lowerCase(entity.getLabel()), _key))
+                        Stream<Entity> s = data.values().stream();
+
+                        foo = (isTable ? s.filter(entity -> StringUtils.contains(StringUtils.lowerCase(entity.getTableMap()), _key)) :
+                                s.filter(entity -> StringUtils.contains(StringUtils.lowerCase(entity.getName()), _key) ||
+                                StringUtils.contains(StringUtils.lowerCase(entity.getLabel()), _key)))
                                 .collect(Collectors.toCollection(ArrayList::new));
                         RESULT_CACHE.put(_key, foo);
                     }
                     foo.forEach(m::addElement);
+                    foo.clear();
+
                     isFinish = true;
                 }
             }
