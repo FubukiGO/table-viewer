@@ -178,6 +178,8 @@ public class TableResearch extends JFrame {
         if (isFinish) {
             synchronized (mutex) {
                 if (isFinish) {
+                    long start = System.currentTimeMillis();
+
                     ArrayList<Entity> foo = null;
                     isFinish = false;
 
@@ -195,7 +197,7 @@ public class TableResearch extends JFrame {
 
                         foo = (isTable ? s.filter(entity -> StringUtils.contains(StringUtils.lowerCase(entity.getTableMap()), _key)) :
                                 s.filter(entity -> StringUtils.contains(StringUtils.lowerCase(entity.getName()), _key) ||
-                                StringUtils.contains(StringUtils.lowerCase(entity.getLabel()), _key)))
+                                        StringUtils.contains(StringUtils.lowerCase(entity.getLabel()), _key)))
                                 .collect(Collectors.toCollection(ArrayList::new));
                         RESULT_CACHE.put(_key, foo);
                     }
@@ -203,6 +205,8 @@ public class TableResearch extends JFrame {
                     foo.clear();
 
                     isFinish = true;
+
+                    System.out.println(String.format("检索完成!%dms", System.currentTimeMillis() - start));
                 }
             }
         }
@@ -243,6 +247,7 @@ public class TableResearch extends JFrame {
 
                 model.addRow(new String[]{c.tblMap, c.label, c.desc, c.datatype, relEnName});
             }
+
             en = data.getOrDefault(en.getParent(), null);
         }
     }
