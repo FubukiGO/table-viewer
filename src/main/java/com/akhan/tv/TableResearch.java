@@ -157,7 +157,9 @@ public class TableResearch extends JFrame {
     }
 
     private void loadData() {
+        
         try {
+            System.out.println("loading....");
             data = null;
             rel = null;
             em = null;
@@ -168,6 +170,7 @@ public class TableResearch extends JFrame {
             rel = ((HashMap) out.readObject());
             em = ((HashMap) out.readObject());
 
+            System.out.println("load success");
             out.close();
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();

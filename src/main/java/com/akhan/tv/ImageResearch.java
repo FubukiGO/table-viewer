@@ -26,8 +26,7 @@ public class ImageResearch {
     public Map jar_path = new HashMap(300);
     public String[][] data = null;
 
-    public void init()
-    {
+    public void init() {
         JFileChooser f = new JFileChooser();
         f.setCurrentDirectory(new File("."));
         f.setFileSelectionMode(2);
@@ -45,33 +44,29 @@ public class ImageResearch {
         this.data = new String[len][3];
         Iterator it = this.key_path.keySet().iterator();
         int i = -1;
-        while (it.hasNext())
-        {
+        while (it.hasNext()) {
             i++;
-            String key = (String)it.next();
-            String p = (String)this.key_path.get(key);
-            String jar = (String)this.jar_path.get(p);
+            String key = (String) it.next();
+            String p = (String) this.key_path.get(key);
+            String jar = (String) this.jar_path.get(p);
 
-            this.data[i] = new String[]{ key, p, jar };
+            this.data[i] = new String[]{key, p, jar};
         }
     }
 
     public void readFile(InputStream file, String f)
-            throws MalformedURLException, DocumentException, FileNotFoundException
-    {
+            throws MalformedURLException, DocumentException, FileNotFoundException {
         Document doc = XmlHelper.getDocument(file);
         Map map = new HashMap(20);
         Element tb = doc.getRootElement();
         Element resource = tb.element("resource");
         List rss = resource.elements("rs");
-        for (int i = 0; i < rss.size(); i++)
-        {
-            Element rs = (Element)rss.get(i);
+        for (int i = 0; i < rss.size(); i++) {
+            Element rs = (Element) rss.get(i);
 
             List l = rs.elements("lang");
-            for (int j = 0; j < l.size(); j++)
-            {
-                Element e = (Element)l.get(j);
+            for (int j = 0; j < l.size(); j++) {
+                Element e = (Element) l.get(j);
                 if (!"zh_CN".equals(e.attributeValue("locale")))
                     continue;
                 map.put(rs.attributeValue("key"), e.attributeValue("value").substring(1));
@@ -83,34 +78,29 @@ public class ImageResearch {
         if ((tb.element("resourceItems") != null) && (tb.element("resourceItems").elements("resourceItem") != null)) {
             List cols = tb.element("resourceItems").elements("resourceItem");
             for (int i = 0; i < cols.size(); i++) {
-                Element el = (Element)cols.get(i);
+                Element el = (Element) cols.get(i);
                 this.key_path.put(el.element("name").getTextTrim(), map.get(el.element("value").getTextTrim()));
             }
         }
     }
 
-    public Vector getKeys()
-    {
+    public Vector getKeys() {
         Vector l = new Vector();
         Iterator i = this.key_path.keySet().iterator();
-        while (i.hasNext())
-        {
+        while (i.hasNext()) {
             l.add(i.next());
         }
         return l;
     }
 
     public void listJarGif(String jar)
-            throws IOException
-    {
+            throws IOException {
         JarFile jarfile = new JarFile(
                 jar);
 
-        for (Enumeration e = jarfile.entries(); e.hasMoreElements(); )
-        {
+        for (Enumeration e = jarfile.entries(); e.hasMoreElements(); ) {
             String key = String.valueOf(e.nextElement());
-            if ((!key.endsWith(".gif")) && (!key.endsWith(".png")) && (!key.endsWith(".jpg")))
-            {
+            if ((!key.endsWith(".gif")) && (!key.endsWith(".png")) && (!key.endsWith(".jpg"))) {
                 continue;
             }
 
@@ -121,23 +111,19 @@ public class ImageResearch {
     }
 
     public void listJarRes(String jar)
-            throws IOException
-    {
+            throws IOException {
         JarFile jarfile = new JarFile(
                 jar);
 
-        for (Enumeration e = jarfile.entries(); e.hasMoreElements(); )
-        {
+        for (Enumeration e = jarfile.entries(); e.hasMoreElements(); ) {
             String key = String.valueOf(e.nextElement());
-            if (!key.endsWith(".imageresource"))
-            {
+            if (!key.endsWith(".imageresource")) {
                 continue;
             }
             ZipEntry entry = jarfile.getEntry(key);
             try {
                 readFile(jarfile.getInputStream(entry), jar);
-            }
-            catch (DocumentException e1) {
+            } catch (DocumentException e1) {
                 e1.printStackTrace();
             }
 
@@ -146,62 +132,45 @@ public class ImageResearch {
         jarfile.close();
     }
 
-    public void listImg(String dir)
-    {
+    public void listImg(String dir) {
         File f = new File(dir);
-        if (f.isDirectory())
-        {
+        if (f.isDirectory()) {
             File[] cf = f.listFiles();
-            for (int i = 0; i < cf.length; i++)
-            {
+            for (int i = 0; i < cf.length; i++) {
                 listImg(cf[i].getAbsolutePath());
             }
 
-        }
-        else if ((dir.endsWith(".jar")) && (dir.indexOf("resource") >= 0))
-        {
-            try
-            {
+        } else if ((dir.endsWith(".jar")) && (dir.indexOf("resource") >= 0)) {
+            try {
                 listJarGif(dir);
-            }
-            catch (IOException e) {
+            } catch (IOException e) {
                 e.printStackTrace();
             }
         }
     }
 
-    public void listRes(String dir)
-    {
+    public void listRes(String dir) {
         File f = new File(dir);
-        if (f.isDirectory())
-        {
+        if (f.isDirectory()) {
             File[] cf = f.listFiles();
-            for (int i = 0; i < cf.length; i++)
-            {
+            for (int i = 0; i < cf.length; i++) {
                 listRes(cf[i].getAbsolutePath());
             }
 
-        }
-        else if ((dir.endsWith(".jar")) && (dir.indexOf("_common") >= 0))
-        {
-            try
-            {
+        } else if ((dir.endsWith(".jar")) && (dir.indexOf("_common") >= 0)) {
+            try {
                 listJarRes(dir);
-            }
-            catch (IOException e) {
+            } catch (IOException e) {
                 e.printStackTrace();
             }
         }
     }
 
-    public static void display()
-    {
+    public static void display() {
     }
 
-    public String[] getPandJar(String key)
-    {
-        for (int i = 0; i < this.data.length; i++)
-        {
+    public String[] getPandJar(String key) {
+        for (int i = 0; i < this.data.length; i++) {
             if (this.data[i][0].equals(key)) {
                 String[] s = new String[3];
                 s[0] = this.data[i][0];
@@ -216,36 +185,28 @@ public class ImageResearch {
         return null;
     }
 
-    public ImageIcon loadImage(String p, String jar)
-    {
-        if (jar != null)
-        {
+    public ImageIcon loadImage(String p, String jar) {
+        if (jar != null) {
             JarFile jarfile = null;
-            try
-            {
+            try {
                 jarfile = new JarFile(
                         jar);
-            }
-            catch (IOException e2) {
+            } catch (IOException e2) {
                 e2.printStackTrace();
             }
 
-            for (Enumeration e = jarfile.entries(); e.hasMoreElements(); )
-            {
+            for (Enumeration e = jarfile.entries(); e.hasMoreElements(); ) {
                 String key = String.valueOf(e.nextElement());
 
-                if (!p.equals(key))
-                {
+                if (!p.equals(key)) {
                     continue;
                 }
 
                 ZipEntry entry = jarfile.getEntry(key);
-                try
-                {
+                try {
                     ImageIcon im = new ImageIcon(ImageIO.read(jarfile.getInputStream(entry)));
                     return im;
-                }
-                catch (IOException e1) {
+                } catch (IOException e1) {
                     e1.printStackTrace();
                 }
 
@@ -256,7 +217,7 @@ public class ImageResearch {
         return null;
     }
 
-    public static void main(String[] args)
-    {
+    public static void main(String[] args) {
+        new ImageResearch().init();
     }
 }
