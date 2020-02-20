@@ -73,12 +73,13 @@ public class GenEasDicNew {
             threadPool.execute(new FileReader());
         }
 
-        while (jarQueue.size() > 0)
+        while (jarQueue.size() > 0) {
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException ie) {
                 ie.printStackTrace();
             }
+        }
 
         display();
 
@@ -115,8 +116,8 @@ public class GenEasDicNew {
         frame.setLocation((screenSize.width - frameSize.width) / 2,
                 (screenSize.height - frameSize.height) / 2);
         frame.setUndecorated(true);
-        frame.getRootPane().setWindowDecorationStyle(0);
-        frame.setDefaultCloseOperation(3);
+        frame.getRootPane().setWindowDecorationStyle(JRootPane.NONE);
+        frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         frame.setVisible(true);
     }
 
@@ -130,8 +131,7 @@ public class GenEasDicNew {
         txtOut.setCaretPosition(txtOut.getText().length());
     }
 
-    public void readFile(InputStream file)
-            throws MalformedURLException, DocumentException {
+    public void readFile(InputStream file) throws MalformedURLException, DocumentException {
         Document doc = XmlHelper.getDocument(file);
         HashMap<String, String> map = Maps.newHashMapWithExpectedSize(20);
         Element tb = doc.getRootElement();
@@ -164,7 +164,7 @@ public class GenEasDicNew {
                 Element key = (Element) keys.get(i);
                 if (!"name".equals(key.attributeValue("name")))
                     continue;
-                tblName = key.attributeValue("value");
+                tblName = key.attributeValue("value").toUpperCase();
                 break;
             }
 
@@ -240,8 +240,7 @@ public class GenEasDicNew {
         }
     }
 
-    public void readEnumFile(InputStream file)
-            throws MalformedURLException, DocumentException, FileNotFoundException {
+    public void readEnumFile(InputStream file) throws MalformedURLException, DocumentException, FileNotFoundException {
         Document doc = XmlHelper.getDocument(file);
         HashMap<String, String> map = Maps.newHashMapWithExpectedSize(20);
 
@@ -284,10 +283,8 @@ public class GenEasDicNew {
         em.put(pk + "." + name, bf.toString());
     }
 
-    public void readRelFile(InputStream file)
-            throws MalformedURLException, DocumentException, FileNotFoundException {
+    public void readRelFile(InputStream file) throws MalformedURLException, DocumentException, FileNotFoundException {
         Document doc = XmlHelper.getDocument(file);
-        Map map = new HashMap(20);
         Element tb = doc.getRootElement();
         String pk = tb.elementText("package");
         String name = tb.elementText("name");
@@ -313,8 +310,7 @@ public class GenEasDicNew {
         rel.put(key, skey);
     }
 
-    public void listJar(String jar)
-            throws IOException {
+    public void listJar(String jar) throws IOException {
         out("扫描:" + jar);
 
         JarFile jarfile = new JarFile(
