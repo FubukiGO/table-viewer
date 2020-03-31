@@ -1,5 +1,6 @@
 package com.akhan.tv;
 
+import com.google.common.collect.Maps;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.Element;
@@ -22,8 +23,8 @@ import java.util.zip.ZipEntry;
  */
 public class ImageResearch {
 
-    public Map key_path = new HashMap(300);
-    public Map jar_path = new HashMap(300);
+    private HashMap<String, String> keyPath = Maps.newHashMapWithExpectedSize(300);
+    private HashMap<String, String> jarPath = Maps.newHashMapWithExpectedSize(300);
     public String[][] data = null;
 
     public void init() {
@@ -40,15 +41,15 @@ public class ImageResearch {
         listImg(f1.getAbsolutePath());
         File f2 = new File(file.getAbsoluteFile() + "\\metas");
         listRes(f2.getAbsolutePath());
-        int len = this.key_path.keySet().size();
+        int len = this.keyPath.keySet().size();
         this.data = new String[len][3];
-        Iterator it = this.key_path.keySet().iterator();
+        Iterator it = this.keyPath.keySet().iterator();
         int i = -1;
         while (it.hasNext()) {
             i++;
             String key = (String) it.next();
-            String p = (String) this.key_path.get(key);
-            String jar = (String) this.jar_path.get(p);
+            String p = (String) this.keyPath.get(key);
+            String jar = (String) this.jarPath.get(p);
 
             this.data[i] = new String[]{key, p, jar};
         }
@@ -57,7 +58,7 @@ public class ImageResearch {
     public void readFile(InputStream file, String f)
             throws MalformedURLException, DocumentException, FileNotFoundException {
         Document doc = XmlHelper.getDocument(file);
-        Map map = new HashMap(20);
+        Map<String, String> map = Maps.newHashMap();
         Element tb = doc.getRootElement();
         Element resource = tb.element("resource");
         List rss = resource.elements("rs");
@@ -79,14 +80,14 @@ public class ImageResearch {
             List cols = tb.element("resourceItems").elements("resourceItem");
             for (int i = 0; i < cols.size(); i++) {
                 Element el = (Element) cols.get(i);
-                this.key_path.put(el.element("name").getTextTrim(), map.get(el.element("value").getTextTrim()));
+                this.keyPath.put(el.element("name").getTextTrim(), map.get(el.element("value").getTextTrim()));
             }
         }
     }
 
     public Vector getKeys() {
         Vector l = new Vector();
-        Iterator i = this.key_path.keySet().iterator();
+        Iterator i = this.keyPath.keySet().iterator();
         while (i.hasNext()) {
             l.add(i.next());
         }
@@ -104,7 +105,7 @@ public class ImageResearch {
                 continue;
             }
 
-            this.jar_path.put(key, jar);
+            this.jarPath.put(key, jar);
         }
 
         jarfile.close();

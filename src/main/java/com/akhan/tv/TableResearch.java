@@ -4,6 +4,7 @@ import com.akhan.tv.gen.GenEasDicNew;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import javafx.scene.control.TableSelectionModel;
 import lombok.SneakyThrows;
 import org.apache.commons.lang3.StringUtils;
 
@@ -36,8 +37,13 @@ public class TableResearch extends JFrame {
     private final static Pattern TABLE_REGX = Pattern.compile("^[a-zA-Z][a-zA-Z_]+[a-zA-Z]$");
 
     private JTextField txtAls = new JTextField("");
+    private JTextField txtAls2 = new JTextField("");
+
+    private int lastFoundRow = 0;
+    private int lastFoundCol = 0;
 
     private JList lsTable = new JList();
+    private JTable detailTable = new JTable();
     private DefaultTableModel model = null;
     private HashMap<String, Entity> data = null;
     private HashMap<String, String> rel = null;
@@ -79,8 +85,9 @@ public class TableResearch extends JFrame {
 
 
         miOpen.addActionListener(e -> {
-            new GenEasDicNew();
+            GenEasDicNew genEasDic = new GenEasDicNew();
 
+            genEasDic = null;
             loadData();
         });
         miExit.addActionListener(e -> {
@@ -97,11 +104,12 @@ public class TableResearch extends JFrame {
         model.addColumn("描述");
         model.addColumn("数据类型");
         model.addColumn("关联关系");
-        JTable cols = new JTable(model);
-
+        detailTable.setModel(model);
+        detailTable.getSelectionModel().setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         loadData();
 
         txtAls.setPreferredSize(new Dimension(300, 30));
+        txtAls2.setPreferredSize(new Dimension(100, 30));
 
         lsTable.setModel(new DefaultListModel());
 
@@ -122,19 +130,46 @@ public class TableResearch extends JFrame {
         });
         lsTable.addListSelectionListener(e -> loadDetail());
         JPanel p1 = new JPanel();
-        p1.setLayout(new BoxLayout(p1, 2));
+        p1.setLayout(new BoxLayout(p1, BoxLayout.LINE_AXIS));
         p1.add(new JLabel("表名称:"));
         p1.add(txtAls);
 
+
+        JButton b1 = new JButton();
+        JButton b2 = new JButton();
+        b1.setText("<");
+        b1.setSize(30, 30);
+        b1.setBackground(Color.LIGHT_GRAY);
+        b1.addActionListener(e -> {
+            searchDetailContent(false);
+        });
+
+        b2.setText(">");
+        b2.setSize(30, 30);
+        b2.setBackground(Color.LIGHT_GRAY);
+        b2.addActionListener(e -> {
+            searchDetailContent(true);
+        });
+
+        JPanel searchBox = new JPanel();
+        searchBox.setLayout(new BoxLayout(searchBox, BoxLayout.LINE_AXIS));
+        searchBox.add(txtAls2);
+        searchBox.add(b1);
+        searchBox.add(b2);
+
         getContentPane().add(p1, "North");
 
-        getContentPane().add(new JLabel("<html><font> Version: V1.1    Date：2020-01 </font> <font color=blue>&nbsp;&nbsp;Created By akhan</font></html>"), "South");
+        getContentPane().add(new JLabel("<html><font> Version: V1.2    Date：2020-01 </font> <font color=blue>&nbsp;&nbsp;Created By akhan</font></html>"), "South");
 
         sp1 = new JScrollPane(lsTable);
+        sp2 = new JScrollPane(detailTable);
 
-        sp2 = new JScrollPane(cols);
+        JPanel sp2box = new JPanel();
+        sp2box.setLayout(new BoxLayout(sp2box, BoxLayout.PAGE_AXIS));
+        sp2box.add(searchBox);
+        sp2box.add(sp2);
 
-        JSplitPane p2 = new JSplitPane(1, false, sp1, sp2);
+        JSplitPane p2 = new JSplitPane(1, false, sp1, sp2box);
 
         getContentPane().add(p2, "Center");
 
@@ -157,7 +192,7 @@ public class TableResearch extends JFrame {
     }
 
     private void loadData() {
-        
+
         try {
             System.out.println("loading....");
             data = null;
@@ -252,6 +287,30 @@ public class TableResearch extends JFrame {
             }
 
             en = data.getOrDefault(en.getParent(), null);
+        }
+
+        //初始化最后查找坐标
+        lastFoundCol = 0;
+        lastFoundRow = 0;
+    }
+
+    private void searchDetailContent(boolean asc) {
+        String search = txtAls2.getText();
+        int rowCnt = model.getRowCount();
+        int colCnt = model.getColumnCount();
+
+        for (int i = 0; i < rowCnt; i++) {
+            for (int j = 0; j < colCnt; j++) {
+                String v = String.valueOf(model.getValueAt(asc ? i : rowCnt - i, asc ? j : colCnt - j));
+
+                if(v.contains(search)) {
+                    lastFoundRow = asc ? i : rowCnt - i;
+                    lastFoundCol = asc ? j : colCnt - j;
+
+                    detailTable.setRowSelectionInterval(lastFoundRow, lastFoundCol);
+                    break;
+                }
+            }
         }
     }
 }

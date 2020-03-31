@@ -5,19 +5,22 @@ import com.akhan.tv.Pro;
 import com.akhan.tv.XmlHelper;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Queues;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.Element;
+import sun.tools.jar.resources.jar;
 
 import javax.swing.*;
 import java.awt.*;
 import java.io.*;
+import java.math.BigDecimal;
 import java.net.MalformedURLException;
+import java.text.DecimalFormat;
 import java.util.List;
 import java.util.*;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.Timer;
+import java.util.concurrent.*;
 import java.util.jar.JarFile;
 import java.util.zip.ZipEntry;
 
@@ -32,7 +35,7 @@ public class GenEasDicNew {
     private HashMap<String, String> rel = Maps.newHashMapWithExpectedSize(300);
     private HashMap<String, String> em = Maps.newHashMapWithExpectedSize(300);
 
-    private ConcurrentLinkedQueue<String> jarQueue = Queues.newConcurrentLinkedQueue();
+    private volatile ConcurrentLinkedQueue<String> jarQueue = Queues.newConcurrentLinkedQueue();
     private ExecutorService threadPool = null;
     private final int THREAD_COUNT = 8;
 
@@ -40,14 +43,9 @@ public class GenEasDicNew {
     private JTextArea txtOut = new JTextArea();
     private JLabel title = new JLabel();
     private JButton btnClose = new JButton("关闭");
+    private JProgressBar progressBar = new JProgressBar();
 
     public GenEasDicNew() {
-
-        try {
-            UIManager.setLookAndFeel("com.sun.java.swing.plaf.windows.WindowsLookAndFeel");
-        } catch (ClassNotFoundException | UnsupportedLookAndFeelException | IllegalAccessException | InstantiationException e1) {
-            e1.printStackTrace();
-        }
 
         try {
             System.setOut(new PrintStream(new FileOutputStream(new File("EAS数据字典.txt"))));
@@ -68,44 +66,35 @@ public class GenEasDicNew {
         listDir(new File("." + File.separator + "metas").getAbsolutePath());
         listDir(file.getAbsolutePath());
 
-        threadPool = Executors.newFixedThreadPool(THREAD_COUNT);
+        ThreadFactory namedThreadFactory = new ThreadFactoryBuilder()
+                .setNameFormat("eas-dic-pool-%d").build();
+        threadPool = new ThreadPoolExecutor(THREAD_COUNT, THREAD_COUNT, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingDeque<>(), namedThreadFactory, new ThreadPoolExecutor.AbortPolicy());
         for (int i = 0; i < THREAD_COUNT; i++) {
             threadPool.execute(new FileReader());
         }
 
-        while (jarQueue.size() > 0) {
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException ie) {
-                ie.printStackTrace();
-            }
-        }
+//        while (jarQueue.size() > 0) {
+//            try {
+//                Thread.sleep(1000);
+//            } catch (InterruptedException ie) {
+//                ie.printStackTrace();
+//            }
+//        }
 
-        display();
-
-        title.setText("运行成功");
-        out("运行成功，查看文件[EAS数据字典.txt]!");
-        btnClose.setEnabled(true);
-        try {
-            ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream("." + File.separator + "dic.db"));
-            out.writeObject(data);
-            out.writeObject(rel);
-            out.writeObject(em);
-
-            out.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        new Thread(new ProgressUpdater(jarQueue.size())).start();
     }
 
-    public void createFrame() {
+    private void createFrame() {
         JScrollPane p = new JScrollPane();
         title.setText("程序运行中...");
         frame.getContentPane().add(title, "North");
         frame.getContentPane().add(p, "Center");
         JPanel pBtn = new JPanel();
+        pBtn.add(progressBar);
         pBtn.add(btnClose);
         btnClose.setEnabled(false);
+        btnClose.setVisible(false);
+
         frame.getContentPane().add(pBtn, "South");
         btnClose.addActionListener(e -> close());
         p.getViewport().add(txtOut);
@@ -121,17 +110,17 @@ public class GenEasDicNew {
         frame.setVisible(true);
     }
 
-    public void close() {
+    private void close() {
         frame.dispose();
         //System.exit(1);
     }
 
-    public void out(String out) {
+    private void out(String out) {
         txtOut.append("\n" + out);
         txtOut.setCaretPosition(txtOut.getText().length());
     }
 
-    public void readFile(InputStream file) throws MalformedURLException, DocumentException {
+    private void readFile(InputStream file) throws MalformedURLException, DocumentException {
         Document doc = XmlHelper.getDocument(file);
         HashMap<String, String> map = Maps.newHashMapWithExpectedSize(20);
         Element tb = doc.getRootElement();
@@ -240,7 +229,7 @@ public class GenEasDicNew {
         }
     }
 
-    public void readEnumFile(InputStream file) throws MalformedURLException, DocumentException, FileNotFoundException {
+    private void readEnumFile(InputStream file) throws MalformedURLException, DocumentException, FileNotFoundException {
         Document doc = XmlHelper.getDocument(file);
         HashMap<String, String> map = Maps.newHashMapWithExpectedSize(20);
 
@@ -283,7 +272,7 @@ public class GenEasDicNew {
         em.put(pk + "." + name, bf.toString());
     }
 
-    public void readRelFile(InputStream file) throws MalformedURLException, DocumentException, FileNotFoundException {
+    private void readRelFile(InputStream file) throws MalformedURLException, DocumentException, FileNotFoundException {
         Document doc = XmlHelper.getDocument(file);
         Element tb = doc.getRootElement();
         String pk = tb.elementText("package");
@@ -310,7 +299,7 @@ public class GenEasDicNew {
         rel.put(key, skey);
     }
 
-    public void listJar(String jar) throws IOException {
+    private void listJar(String jar) throws IOException {
         out("扫描:" + jar);
 
         JarFile jarfile = new JarFile(
@@ -353,7 +342,7 @@ public class GenEasDicNew {
         jarfile.close();
     }
 
-    public void listDir(String dir) {
+    private void listDir(String dir) {
         File f = new File(dir);
         if (f.isDirectory()) {
             File[] cf = f.listFiles();
@@ -364,6 +353,32 @@ public class GenEasDicNew {
             jarQueue.offer(dir);
         }
 
+    }
+
+    class ProgressUpdater implements Runnable {
+        private int oldSize = 0;
+        private DecimalFormat df = new DecimalFormat("#");
+
+        @Override
+        public void run() {
+            while (!jarQueue.isEmpty()) {
+                progressBar.setValue(Integer.parseInt(df.format((1 - ((double) jarQueue.size() / oldSize)) * 100)));
+
+                try {
+                    Thread.sleep(500L);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            progressBar.setVisible(false);
+            btnClose.setEnabled(true);
+            btnClose.setVisible(true);
+        }
+
+        public ProgressUpdater(int oldSize) {
+            this.oldSize = oldSize;
+        }
     }
 
     class FileReader implements Runnable {
@@ -405,7 +420,7 @@ public class GenEasDicNew {
         }
     }
 
-    public void display() {
+    private void display() {
         out("正在输出文件...");
         List l = new ArrayList(data.size());
 
@@ -445,7 +460,25 @@ public class GenEasDicNew {
             }
             System.out.println("}");
         }
+
+        title.setText("运行成功");
+
     }
 
+    private void writeDic() {
+
+        out("运行成功，查看文件[EAS数据字典.txt]!");
+        btnClose.setEnabled(true);
+        try {
+            ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream("." + File.separator + "dic.db"));
+            out.writeObject(data);
+            out.writeObject(rel);
+            out.writeObject(em);
+
+            out.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
 }
