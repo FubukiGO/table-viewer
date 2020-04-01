@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Vector;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
@@ -36,6 +37,8 @@ import java.util.stream.Stream;
  * @date: 10:18 2019/12/31
  */
 public class TableResearch extends JFrame {
+
+    private static volatile TableResearch INSTANCE = null;
 
     private final static Pattern TABLE_REGX = Pattern.compile("^[a-zA-Z][a-zA-Z_]+[a-zA-Z]$");
 
@@ -53,9 +56,9 @@ public class TableResearch extends JFrame {
     private JPanel searchBox = new JPanel();
 
     private DefaultTableModel model = null;
-    private HashMap<String, Entity> data = null;
-    private HashMap<String, String> rel = null;
-    private HashMap<String, String> em = null;
+    private ConcurrentHashMap<String, Entity> data = null;
+    private ConcurrentHashMap<String, String> rel = null;
+    private ConcurrentHashMap<String, String> em = null;
     private volatile boolean isFinish = true;
     private final Object mutex = new Object();
 
@@ -75,7 +78,19 @@ public class TableResearch extends JFrame {
     private JScrollPane sp1 = null;
     private JScrollPane sp2 = null;
 
-    public TableResearch() {
+    public static TableResearch getInstance() {
+        if (INSTANCE == null) {
+            synchronized (TableResearch.class) {
+                if (INSTANCE == null) {
+                    INSTANCE = new TableResearch();
+                }
+            }
+        }
+
+        return INSTANCE;
+    }
+
+    private TableResearch() {
         JMenuBar mBar = new JMenuBar();
         setJMenuBar(mBar);
         JMenu fileMenu = new JMenu("文件");
@@ -95,9 +110,7 @@ public class TableResearch extends JFrame {
 
 
         miOpen.addActionListener(e -> {
-            GenEasDicNew genEasDic = new GenEasDicNew();
-            genEasDic = null;
-            loadData();
+            new GenEasDicNew();
         });
         miExit.addActionListener(e -> {
             int judge = JOptionPane.showConfirmDialog(TableResearch.this, "确认退出？");
@@ -183,6 +196,7 @@ public class TableResearch extends JFrame {
         searchBox.add(txtAls2);
         searchBox.add(b1);
         searchBox.add(b2);
+        searchBox.setVisible(false);
 
         getContentPane().add(p1, BorderLayout.NORTH);
 
@@ -220,12 +234,12 @@ public class TableResearch extends JFrame {
             }
         }
 
-        sp2box.getInputMap().put(KeyStroke.getKeyStroke("control A"), "action_find");
+        sp2box.getInputMap().put(KeyStroke.getKeyStroke("ctrl a"), "action_find");
 
         setVisible(true);
     }
 
-    private void loadData() {
+    public void loadData() {
 
         try {
             System.out.println("loading....");
@@ -235,9 +249,9 @@ public class TableResearch extends JFrame {
             System.gc();
 
             ObjectInputStream out = new ObjectInputStream(new FileInputStream("." + File.separator + "dic.db"));
-            data = ((HashMap) out.readObject());
-            rel = ((HashMap) out.readObject());
-            em = ((HashMap) out.readObject());
+            data = ((ConcurrentHashMap) out.readObject());
+            rel = ((ConcurrentHashMap) out.readObject());
+            em = ((ConcurrentHashMap) out.readObject());
 
             System.out.println("load success");
             out.close();
@@ -320,7 +334,8 @@ public class TableResearch extends JFrame {
                 model.addRow(new String[]{c.tblMap, c.label, c.desc, c.datatype, relEnName});
             }
 
-            en = data.getOrDefault(en.getParent(), null);
+            //TODO parent为空的数据应该做处理
+            en = en.getParent() == null ? null : data.get(en.getParent());
         }
 
         //初始化最后查找坐标
@@ -395,10 +410,10 @@ public class TableResearch extends JFrame {
     }
 
     private void switchSearchBox() {
-        if (sp2box.isVisible()) {
-            sp2box.setVisible(false);
+        if (searchBox.isVisible()) {
+            searchBox.setVisible(false);
         } else {
-            search.setVisible(true);
+            searchBox.setVisible(true);
         }
     }
 }

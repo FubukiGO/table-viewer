@@ -20,6 +20,6 @@ public class Client {
             e1.printStackTrace();
         }
 
-        new TableResearch();
+        TableResearch.getInstance();
     }
 }

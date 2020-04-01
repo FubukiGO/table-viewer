@@ -2,6 +2,7 @@ package com.akhan.tv.gen;
 
 import com.akhan.tv.Entity;
 import com.akhan.tv.Pro;
+import com.akhan.tv.TableResearch;
 import com.akhan.tv.XmlHelper;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Queues;
@@ -29,17 +30,17 @@ import java.util.zip.ZipEntry;
  * @description:
  * @date: 10:16 2019/12/31
  */
-public class GenEasDicNew {
+public class GenEasDicNew extends JFrame {
 
-    private HashMap<String, Entity> data = Maps.newHashMapWithExpectedSize(300);
-    private HashMap<String, String> rel = Maps.newHashMapWithExpectedSize(300);
-    private HashMap<String, String> em = Maps.newHashMapWithExpectedSize(300);
+    private Integer capacity = 300;
+    private ConcurrentHashMap<String, Entity> data = new ConcurrentHashMap<>(capacity);
+    private ConcurrentHashMap<String, String> rel = new ConcurrentHashMap<>(capacity);
+    private ConcurrentHashMap<String, String> em = new ConcurrentHashMap<>(capacity);
 
     private volatile ConcurrentLinkedQueue<String> jarQueue = Queues.newConcurrentLinkedQueue();
     private ExecutorService threadPool = null;
-    private final int THREAD_COUNT = 8;
+    private final int THREAD_COUNT = 16;
 
-    private JFrame frame = new JFrame();
     private JTextArea txtOut = new JTextArea();
     private JLabel title = new JLabel();
     private JButton btnClose = new JButton("关闭");
@@ -48,7 +49,7 @@ public class GenEasDicNew {
     public GenEasDicNew() {
 
         try {
-            System.setOut(new PrintStream(new FileOutputStream(new File("EAS数据字典.txt"))));
+            System.setOut(new PrintStream(new FileOutputStream(new File("log"))));
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
@@ -72,6 +73,7 @@ public class GenEasDicNew {
         for (int i = 0; i < THREAD_COUNT; i++) {
             threadPool.execute(new FileReader());
         }
+        threadPool.shutdown();
 
 //        while (jarQueue.size() > 0) {
 //            try {
@@ -82,36 +84,38 @@ public class GenEasDicNew {
 //        }
 
         new Thread(new ProgressUpdater(jarQueue.size())).start();
+
     }
 
     private void createFrame() {
         JScrollPane p = new JScrollPane();
         title.setText("程序运行中...");
-        frame.getContentPane().add(title, "North");
-        frame.getContentPane().add(p, "Center");
+        getContentPane().add(title, "North");
+        getContentPane().add(p, "Center");
         JPanel pBtn = new JPanel();
         pBtn.add(progressBar);
         pBtn.add(btnClose);
         btnClose.setEnabled(false);
         btnClose.setVisible(false);
 
-        frame.getContentPane().add(pBtn, "South");
+        getContentPane().add(pBtn, "South");
         btnClose.addActionListener(e -> close());
         p.getViewport().add(txtOut);
 
-        frame.setSize(600, 400);
+        setSize(600, 400);
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-        Dimension frameSize = frame.getSize();
-        frame.setLocation((screenSize.width - frameSize.width) / 2,
+        Dimension frameSize = getSize();
+        setLocation((screenSize.width - frameSize.width) / 2,
                 (screenSize.height - frameSize.height) / 2);
-        frame.setUndecorated(true);
-        frame.getRootPane().setWindowDecorationStyle(JRootPane.NONE);
-        frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        frame.setVisible(true);
+        setUndecorated(true);
+        getRootPane().setWindowDecorationStyle(JRootPane.NONE);
+        setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        setVisible(true);
     }
 
     private void close() {
-        frame.dispose();
+        TableResearch.getInstance().loadData();
+        dispose();
         //System.exit(1);
     }
 
@@ -361,7 +365,7 @@ public class GenEasDicNew {
 
         @Override
         public void run() {
-            while (!jarQueue.isEmpty()) {
+            while (!jarQueue.isEmpty() || !threadPool.isShutdown()) {
                 progressBar.setValue(Integer.parseInt(df.format((1 - ((double) jarQueue.size() / oldSize)) * 100)));
 
                 try {
@@ -371,9 +375,8 @@ public class GenEasDicNew {
                 }
             }
 
-            progressBar.setVisible(false);
-            btnClose.setEnabled(true);
-            btnClose.setVisible(true);
+            printDicLog();
+            writeDic();
         }
 
         public ProgressUpdater(int oldSize) {
@@ -420,8 +423,8 @@ public class GenEasDicNew {
         }
     }
 
-    private void display() {
-        out("正在输出文件...");
+    private void printDicLog() {
+        out("正在保存日志...");
         List l = new ArrayList(data.size());
 
         l.addAll(data.values());
@@ -433,17 +436,17 @@ public class GenEasDicNew {
             return a.getKey().compareTo(b.getKey());
         });
         for (Object o : l) {
-            Entity enty = (Entity) o;
-            if ((enty.getKey().contains("com.kingdee.eas.framework")) || (enty.getKey().contains("com.kingdee.eas.bim"))) {
+            Entity entry = (Entity) o;
+            if ((entry.getKey().contains("com.kingdee.eas.framework")) || (entry.getKey().contains("com.kingdee.eas.bim"))) {
                 continue;
             }
-            Entity tmpEnty = enty;
+            Entity temp = entry;
             List cls = new ArrayList();
 
-            while (tmpEnty != null) {
-                cls.addAll(tmpEnty.getColumns());
+            while (temp != null) {
+                cls.addAll(temp.getColumns());
 
-                tmpEnty = data.get(tmpEnty.getParent());
+                temp = temp.getParent() == null ? null : data.get(temp.getParent());
             }
 
             cls.sort((arg0, arg1) -> {
@@ -452,7 +455,7 @@ public class GenEasDicNew {
 
                 return a.getName().compareTo(b.getName());
             });
-            System.out.println(enty.getName() + "\t" + enty.getTableMap() + " " + "\t" + enty.getLabel());
+            System.out.println(entry.getName() + "\t" + entry.getTableMap() + " " + "\t" + entry.getLabel());
             System.out.println("{");
             for (int j = 0; j < cls.size(); j++) {
                 Pro p = (Pro) cls.get(j);
@@ -460,15 +463,15 @@ public class GenEasDicNew {
             }
             System.out.println("}");
         }
-
-        title.setText("运行成功");
-
     }
 
     private void writeDic() {
+        title.setText("运行成功");
 
-        out("运行成功，查看文件[EAS数据字典.txt]!");
+        progressBar.setVisible(false);
         btnClose.setEnabled(true);
+        btnClose.setVisible(true);
+
         try {
             ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream("." + File.separator + "dic.db"));
             out.writeObject(data);
