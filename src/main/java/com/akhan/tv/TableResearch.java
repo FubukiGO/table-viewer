@@ -12,15 +12,18 @@ import javax.swing.*;
 import javax.swing.plaf.FontUIResource;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.Vector;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
@@ -36,14 +39,19 @@ public class TableResearch extends JFrame {
 
     private final static Pattern TABLE_REGX = Pattern.compile("^[a-zA-Z][a-zA-Z_]+[a-zA-Z]$");
 
+    private DecimalFormat df = new DecimalFormat("#");
+
     private JTextField txtAls = new JTextField("");
     private JTextField txtAls2 = new JTextField("");
 
-    private int lastFoundRow = 0;
-    private int lastFoundCol = 0;
+    private int nextFoundRow = 0;
+    private int nextFoundCol = 0;
 
     private JList lsTable = new JList();
     private JTable detailTable = new JTable();
+    private JPanel sp2box = new JPanel();
+    private JPanel searchBox = new JPanel();
+
     private DefaultTableModel model = null;
     private HashMap<String, Entity> data = null;
     private HashMap<String, String> rel = null;
@@ -77,16 +85,17 @@ public class TableResearch extends JFrame {
 
         JMenuItem miOpen = new JMenuItem("重新载入");
         JMenuItem miExit = new JMenuItem("退出");
+        JMenuItem miFind = new JMenuItem("查找");
 
 
         fileMenu.add(miOpen);
         fileMenu.addSeparator();
         fileMenu.add(miExit);
+        editMenu.add(miFind);
 
 
         miOpen.addActionListener(e -> {
             GenEasDicNew genEasDic = new GenEasDicNew();
-
             genEasDic = null;
             loadData();
         });
@@ -96,6 +105,7 @@ public class TableResearch extends JFrame {
                 System.exit(0);
             }
         });
+        miFind.addActionListener(e -> switchSearchBox());
 
         setTitle("表结构");
         model = new DefaultTableModel();
@@ -128,6 +138,24 @@ public class TableResearch extends JFrame {
             public void keyTyped(KeyEvent e) {
             }
         });
+
+        txtAls2.addKeyListener(new KeyListener() {
+            @Override
+            public void keyTyped(KeyEvent e) {
+
+            }
+
+            @Override
+            public void keyPressed(KeyEvent e) {
+
+            }
+
+            @Override
+            public void keyReleased(KeyEvent e) {
+                resetLastFoundPosition();
+            }
+        });
+
         lsTable.addListSelectionListener(e -> loadDetail());
         JPanel p1 = new JPanel();
         p1.setLayout(new BoxLayout(p1, BoxLayout.LINE_AXIS));
@@ -141,42 +169,46 @@ public class TableResearch extends JFrame {
         b1.setSize(30, 30);
         b1.setBackground(Color.LIGHT_GRAY);
         b1.addActionListener(e -> {
-            searchDetailContent(false);
+            searchDetailContent(false, false);
         });
 
         b2.setText(">");
         b2.setSize(30, 30);
         b2.setBackground(Color.LIGHT_GRAY);
         b2.addActionListener(e -> {
-            searchDetailContent(true);
+            searchDetailContent(true, false);
         });
 
-        JPanel searchBox = new JPanel();
         searchBox.setLayout(new BoxLayout(searchBox, BoxLayout.LINE_AXIS));
         searchBox.add(txtAls2);
         searchBox.add(b1);
         searchBox.add(b2);
 
-        getContentPane().add(p1, "North");
+        getContentPane().add(p1, BorderLayout.NORTH);
 
-        getContentPane().add(new JLabel("<html><font> Version: V1.2    Date：2020-01 </font> <font color=blue>&nbsp;&nbsp;Created By akhan</font></html>"), "South");
+        getContentPane().add(new JLabel("<html><font> Version: V1.2    Date：2020-01 </font> <font color=blue>&nbsp;&nbsp;Created By akhan</font></html>"), BorderLayout.SOUTH);
 
         sp1 = new JScrollPane(lsTable);
         sp2 = new JScrollPane(detailTable);
 
-        JPanel sp2box = new JPanel();
         sp2box.setLayout(new BoxLayout(sp2box, BoxLayout.PAGE_AXIS));
         sp2box.add(searchBox);
         sp2box.add(sp2);
+        sp2box.getActionMap().put("action_find", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                switchSearchBox();
+            }
+        });
 
         JSplitPane p2 = new JSplitPane(1, false, sp1, sp2box);
 
-        getContentPane().add(p2, "Center");
+        getContentPane().add(p2, BorderLayout.CENTER);
 
         pack();
 
         setLocationRelativeTo(null);
-        setDefaultCloseOperation(3);
+        setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         setBackground(Color.GRAY);
 
         FontUIResource font = new FontUIResource(new Font("微软雅黑", Font.PLAIN, 16));
@@ -187,6 +219,8 @@ public class TableResearch extends JFrame {
                 UIManager.put(key, font);
             }
         }
+
+        sp2box.getInputMap().put(KeyStroke.getKeyStroke("control A"), "action_find");
 
         setVisible(true);
     }
@@ -290,27 +324,81 @@ public class TableResearch extends JFrame {
         }
 
         //初始化最后查找坐标
-        lastFoundCol = 0;
-        lastFoundRow = 0;
+        resetLastFoundPosition();
     }
 
-    private void searchDetailContent(boolean asc) {
-        String search = txtAls2.getText();
+    private void searchDetailContent(boolean asc, boolean isSecond) {
+        String search = txtAls2.getText().toLowerCase();
+
+        if (StringUtils.isBlank(search)) return;
+
+        boolean found = false;
+
+        Vector row = model.getDataVector();
+
         int rowCnt = model.getRowCount();
-        int colCnt = model.getColumnCount();
+        //int colCnt = model.getColumnCount();
+        int colCnt = 2;
 
-        for (int i = 0; i < rowCnt; i++) {
+
+        if (asc && nextFoundRow + 1 == rowCnt) {
+            nextFoundRow = 0;
+        } else if (!asc && nextFoundRow == 0) {
+            nextFoundRow = rowCnt - 1;
+        } else {
+            nextFoundRow = ps(asc, nextFoundRow);
+        }
+
+        l1:
+        for (int i = nextFoundRow; asc ? i < rowCnt : i > -1; i = ps(asc, i)) {
+            Vector col = (Vector) row.elementAt(i);
             for (int j = 0; j < colCnt; j++) {
-                String v = String.valueOf(model.getValueAt(asc ? i : rowCnt - i, asc ? j : colCnt - j));
 
-                if(v.contains(search)) {
-                    lastFoundRow = asc ? i : rowCnt - i;
-                    lastFoundCol = asc ? j : colCnt - j;
+                String v = String.valueOf(col.elementAt(j));
+                if (StringUtils.isNotBlank(v)) {
+                    if (v.toLowerCase().contains(search)) {
+                        detailTable.setRowSelectionInterval(i, i);
 
-                    detailTable.setRowSelectionInterval(lastFoundRow, lastFoundCol);
-                    break;
+                        nextFoundRow = i;
+                        nextFoundCol = j;
+
+                        found = true;
+
+                        moveScrollBarByFocus();
+                        break l1;
+                    }
                 }
             }
+        }
+
+        if (!found && !isSecond) {
+            resetLastFoundPosition();
+            searchDetailContent(asc, true);
+        }
+    }
+
+    private int ps(boolean _f, int _a) {
+        if (_f) return _a + 1;
+        else return _a - 1;
+    }
+
+    private void resetLastFoundPosition() {
+        nextFoundRow = 0;
+        nextFoundCol = 0;
+    }
+
+    private void moveScrollBarByFocus() {
+        JScrollBar scrollBar = sp2.getVerticalScrollBar();
+        int _m = scrollBar.getMaximum();
+        int _s = scrollBar.getMinimum();
+        scrollBar.setValue(Integer.parseInt(df.format((double) detailTable.getSelectedRow() / detailTable.getRowCount() * _m)));
+    }
+
+    private void switchSearchBox() {
+        if (sp2box.isVisible()) {
+            sp2box.setVisible(false);
+        } else {
+            search.setVisible(true);
         }
     }
 }
