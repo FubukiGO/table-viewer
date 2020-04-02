@@ -4,7 +4,6 @@ import com.akhan.tv.gen.GenEasDicNew;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import javafx.scene.control.TableSelectionModel;
 import lombok.SneakyThrows;
 import org.apache.commons.lang3.StringUtils;
 
@@ -22,7 +21,6 @@ import java.io.ObjectInputStream;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Enumeration;
-import java.util.HashMap;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;

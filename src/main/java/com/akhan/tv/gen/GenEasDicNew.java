@@ -10,17 +10,16 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.Element;
-import sun.tools.jar.resources.jar;
 
 import javax.swing.*;
 import java.awt.*;
 import java.io.*;
-import java.math.BigDecimal;
 import java.net.MalformedURLException;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.List;
-import java.util.*;
-import java.util.Timer;
 import java.util.concurrent.*;
 import java.util.jar.JarFile;
 import java.util.zip.ZipEntry;
@@ -101,6 +100,7 @@ public class GenEasDicNew extends JFrame {
 
         getContentPane().add(pBtn, "South");
         btnClose.addActionListener(e -> close());
+
         p.getViewport().add(txtOut);
 
         setSize(600, 400);
@@ -122,6 +122,7 @@ public class GenEasDicNew extends JFrame {
 
     private void out(String out) {
         txtOut.append("\n" + out);
+        //显示光标位置
         txtOut.setCaretPosition(txtOut.getText().length());
     }
 
