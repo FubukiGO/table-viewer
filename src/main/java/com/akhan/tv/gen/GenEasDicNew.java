@@ -60,7 +60,8 @@ public class GenEasDicNew extends JFrame {
         f.showOpenDialog(null);
         File file = f.getSelectedFile();
         if ((file == null) || (!file.exists())) {
-            System.exit(0);
+            dispose();
+            return;
         }
 
         createFrame();

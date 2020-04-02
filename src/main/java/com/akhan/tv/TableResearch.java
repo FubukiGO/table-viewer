@@ -99,9 +99,10 @@ public class TableResearch extends JFrame {
         mBar.add(editMenu);
 
         JMenuItem miOpen = new JMenuItem("重新载入");
+        miOpen.setAccelerator(KeyStroke.getKeyStroke("ctrl R"));
         JMenuItem miExit = new JMenuItem("退出");
         JMenuItem miFind = new JMenuItem("查找");
-
+        miFind.setAccelerator(KeyStroke.getKeyStroke("ctrl F"));
 
         fileMenu.add(miOpen);
         fileMenu.addSeparator();
@@ -178,6 +179,7 @@ public class TableResearch extends JFrame {
 
         JButton b1 = new JButton();
         JButton b2 = new JButton();
+        JButton c1 = new JButton();
         b1.setText("<");
         b1.setSize(30, 30);
         b1.setBackground(Color.LIGHT_GRAY);
@@ -192,10 +194,18 @@ public class TableResearch extends JFrame {
             searchDetailContent(true, false);
         });
 
+        c1.setText("x");
+        c1.setSize(10, 10);
+        c1.setBackground(Color.GRAY);
+        c1.addActionListener(e -> {
+            switchSearchBox();
+        });
+
         searchBox.setLayout(new BoxLayout(searchBox, BoxLayout.LINE_AXIS));
         searchBox.add(txtAls2);
         searchBox.add(b1);
         searchBox.add(b2);
+        searchBox.add(c1);
         searchBox.setVisible(false);
 
         getContentPane().add(p1, BorderLayout.NORTH);
@@ -208,14 +218,14 @@ public class TableResearch extends JFrame {
         sp2box.setLayout(new BoxLayout(sp2box, BoxLayout.PAGE_AXIS));
         sp2box.add(searchBox);
         sp2box.add(sp2);
-        sp2box.getActionMap().put("action_find", new AbstractAction() {
+
+        JSplitPane p2 = new JSplitPane(1, false, sp1, sp2box);
+        p2.getActionMap().put("action_find", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 switchSearchBox();
             }
         });
-
-        JSplitPane p2 = new JSplitPane(1, false, sp1, sp2box);
 
         getContentPane().add(p2, BorderLayout.CENTER);
 
@@ -233,8 +243,6 @@ public class TableResearch extends JFrame {
                 UIManager.put(key, font);
             }
         }
-
-        sp2box.getInputMap().put(KeyStroke.getKeyStroke("ctrl a"), "action_find");
 
         setVisible(true);
     }
