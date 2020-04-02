@@ -111,6 +111,17 @@ public class TableResearch extends JFrame {
 
 
         miOpen.addActionListener(e -> {
+            try {
+                String os = System.getProperty("os.name");
+                if (os.contains("OS X")) {
+                    UIManager.setLookAndFeel("com.sun.java.swing.plaf.mac.MacLookAndFeel");
+                } else {
+                    UIManager.setLookAndFeel("com.sun.java.swing.plaf.windows.WindowsLookAndFeel");
+                }
+            } catch (ClassNotFoundException | UnsupportedLookAndFeelException | IllegalAccessException | InstantiationException e1) {
+                e1.printStackTrace();
+            }
+
             new GenEasDicNew();
         });
         miExit.addActionListener(e -> {
