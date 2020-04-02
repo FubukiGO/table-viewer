@@ -11,9 +11,7 @@ import javax.swing.*;
 import javax.swing.plaf.FontUIResource;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
+import java.awt.event.*;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -89,6 +87,10 @@ public class TableResearch extends JFrame {
     }
 
     private TableResearch() {
+        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+        int screenWidth = (int) screenSize.getWidth();
+        int screenHeight = (int) screenSize.getHeight();
+
         JMenuBar mBar = new JMenuBar();
         setJMenuBar(mBar);
         JMenu fileMenu = new JMenu("文件");
@@ -132,6 +134,7 @@ public class TableResearch extends JFrame {
 
         txtAls.setPreferredSize(new Dimension(300, 30));
         txtAls2.setPreferredSize(new Dimension(100, 30));
+        txtAls2.setMaximumSize(new Dimension(screenWidth, 30));
 
         lsTable.setModel(new DefaultListModel());
 
@@ -177,26 +180,47 @@ public class TableResearch extends JFrame {
 
         JButton b1 = new JButton();
         JButton b2 = new JButton();
-        JButton c1 = new JButton();
+        JLabel c1 = new JLabel();
         b1.setText("<");
-        b1.setSize(30, 30);
         b1.setBackground(Color.LIGHT_GRAY);
         b1.addActionListener(e -> {
             searchDetailContent(false, false);
         });
 
         b2.setText(">");
-        b2.setSize(30, 30);
         b2.setBackground(Color.LIGHT_GRAY);
         b2.addActionListener(e -> {
             searchDetailContent(true, false);
         });
 
         c1.setText("x");
+        c1.setBackground(Color.LIGHT_GRAY);
         c1.setSize(10, 10);
-        c1.setBackground(Color.GRAY);
-        c1.addActionListener(e -> {
-            switchSearchBox();
+        c1.addMouseListener(new MouseListener() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                switchSearchBox();
+            }
+
+            @Override
+            public void mousePressed(MouseEvent e) {
+
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+
+            }
+
+            @Override
+            public void mouseEntered(MouseEvent e) {
+
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+
+            }
         });
 
         searchBox.setLayout(new BoxLayout(searchBox, BoxLayout.LINE_AXIS));
